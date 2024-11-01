@@ -30,12 +30,12 @@ type IPInfoResp struct {
 func main() {
 	// start UI
 	fmt.Print(`
-------------------------------------------------------------
+---------------------------------------------------------------
 Welcome to Trace to Geo
 				
 Please enter an IP or a traceroute (or anything containing an IP really)
 and the program will output the geolocation data for each IP.
-------------------------------------------------------------
+---------------------------------------------------------------
 `)
 	fmt.Println("Enter ipinfo.io token:")
 	token := readUserInputSingle()
@@ -44,14 +44,38 @@ and the program will output the geolocation data for each IP.
 
 	usrInput := readUserInput()
 	ipList := parseIPs(usrInput)
+	results := queryIPs(ipList, token)
+
+	for i, result := range results {
+		fmt.Println("---------------------------------------------------------------")
+		fmt.Println("Hop", i+1, "IP:", result.IP)
+		fmt.Println("---------------------------------------------------------------")
+		fmt.Printf("Hostname: %s \n", result.Hostname)
+		fmt.Printf("Anycast: %v \n", result.Anycast)
+		fmt.Printf("City: %s \n", result.City)
+		fmt.Printf("Region: %s \n", result.Region)
+		fmt.Printf("Country: %s \n", result.Country)
+		fmt.Printf("Location: %s \n", result.Loc)
+		fmt.Printf("Organization: %s \n", result.Org)
+		fmt.Printf("Postal: %s \n", result.Postal)
+		fmt.Printf("Timezone: %s \n", result.Timezone)
+		fmt.Printf("---------------------------------------------------------------\n\n")
+	}
+
+	fmt.Println("Press enter to exit program")
+	readUserInputSingle()
+}
+
+func queryIPs(ipList []string, token string) []IPInfoResp {
+	var results []IPInfoResp
+	baseURL := "https://ipinfo.io"
 
 	for _, ip := range ipList {
-		baseURL := "https://ipinfo.io"
 
 		u, err := url.Parse(baseURL)
 		if err != nil {
 			fmt.Println("Error parsing URL: ", err)
-			return
+			return nil
 		}
 
 		u.Path += "/" + ip
@@ -61,29 +85,23 @@ and the program will output the geolocation data for each IP.
 
 		resp, err := http.Get(u.String())
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 		defer resp.Body.Close()
 
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 
 		var result IPInfoResp
 		if err := json.Unmarshal(body, &result); err != nil {
 			fmt.Println("Can not unmarshal JSON")
+			break
 		}
-		fmt.Println(PrettyPrint(result.Country))
+		results = append(results, result)
 	}
-
-	fmt.Println("Press enter to exit program")
-	readUserInputSingle()
-}
-
-func PrettyPrint(i interface{}) string {
-	s, _ := json.MarshalIndent(i, "", "\t")
-	return string(s)
+	return results
 }
 
 func parseIPs(usrInput []string) []string {
