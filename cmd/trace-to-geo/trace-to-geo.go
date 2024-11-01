@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 )
 
 var exitString string = "done"
@@ -27,7 +28,20 @@ type IPInfoResp struct {
 	Timezone string `json:"timezone"`
 }
 
+type Choice struct {
+	ID          int
+	Description string
+}
+
 func main() {
+	// init
+	choices := []Choice{
+		{ID: 0, Description: "Enter a new IP or traceroute"},
+		{ID: 1, Description: "Show full IP info for every hop"},
+		{ID: 2, Description: "Keep the same traceroute input, prepend Location info only"},
+		{ID: 9, Description: "Exit program"},
+	}
+
 	// start UI
 	fmt.Print(`
 ---------------------------------------------------------------
@@ -37,33 +51,58 @@ Please enter an IP or a traceroute (or anything containing an IP really)
 and the program will output the geolocation data for each IP.
 ---------------------------------------------------------------
 `)
+	var usrChoice int
+	var results []IPInfoResp
 	fmt.Println("Enter ipinfo.io token:")
 	token := readUserInputSingle()
 
-	fmt.Println("Enter the IP(s) and press and enter ", exitString, " in the last line.")
+	// user interaction loop
+	for {
+		switch usrChoice {
+		case 9:
+			fmt.Println("Good bye!")
+			os.Exit(0)
+		case 1:
+			for i, result := range results {
+				fmt.Println("---------------------------------------------------------------")
+				fmt.Println("Hop", i+1, "IP:", result.IP)
+				fmt.Println("---------------------------------------------------------------")
+				fmt.Printf("Hostname: %s \n", result.Hostname)
+				fmt.Printf("Anycast: %v \n", result.Anycast)
+				fmt.Printf("City: %s \n", result.City)
+				fmt.Printf("Region: %s \n", result.Region)
+				fmt.Printf("Country: %s \n", result.Country)
+				fmt.Printf("Location: %s \n", result.Loc)
+				fmt.Printf("Organization: %s \n", result.Org)
+				fmt.Printf("Postal: %s \n", result.Postal)
+				fmt.Printf("Timezone: %s \n", result.Timezone)
+				fmt.Printf("---------------------------------------------------------------\n\n")
+			}
 
-	usrInput := readUserInput()
-	ipList := parseIPs(usrInput)
-	results := queryIPs(ipList, token)
+			displayChoices(choices)
+			usrChoice, _ = strconv.Atoi(readUserInputSingle())
+		case 2:
+			displayChoices(choices)
+			usrChoice, _ = strconv.Atoi(readUserInputSingle())
+		default:
+			results = nil
+			fmt.Println("Enter the IP(s) and press and enter ", exitString, " in the last line.")
+			usrInput := readUserInput()
+			ipList := parseIPs(usrInput)
+			results = queryIPs(ipList, token)
 
-	for i, result := range results {
-		fmt.Println("---------------------------------------------------------------")
-		fmt.Println("Hop", i+1, "IP:", result.IP)
-		fmt.Println("---------------------------------------------------------------")
-		fmt.Printf("Hostname: %s \n", result.Hostname)
-		fmt.Printf("Anycast: %v \n", result.Anycast)
-		fmt.Printf("City: %s \n", result.City)
-		fmt.Printf("Region: %s \n", result.Region)
-		fmt.Printf("Country: %s \n", result.Country)
-		fmt.Printf("Location: %s \n", result.Loc)
-		fmt.Printf("Organization: %s \n", result.Org)
-		fmt.Printf("Postal: %s \n", result.Postal)
-		fmt.Printf("Timezone: %s \n", result.Timezone)
-		fmt.Printf("---------------------------------------------------------------\n\n")
+			fmt.Println("Select display option")
+			displayChoices(choices)
+			usrChoice, _ = strconv.Atoi(readUserInputSingle())
+		}
+
 	}
+}
 
-	fmt.Println("Press enter to exit program")
-	readUserInputSingle()
+func displayChoices(choices []Choice) {
+	for _, c := range choices {
+		fmt.Println("Enter \"", c.ID, "\" for: ", c.Description)
+	}
 }
 
 func queryIPs(ipList []string, token string) []IPInfoResp {
