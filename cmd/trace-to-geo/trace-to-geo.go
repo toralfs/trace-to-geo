@@ -11,6 +11,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 var exitString string = "done"
@@ -41,6 +42,10 @@ func main() {
 		{ID: 2, Description: "Keep the same traceroute input, prepend Location info only"},
 		{ID: 9, Description: "Exit program"},
 	}
+	var usrChoice int
+	var usrInput []string
+	var results map[int]IPInfoResp
+	var ipList map[int]string
 
 	// start UI
 	fmt.Print(`
@@ -51,8 +56,7 @@ Please enter an IP or a traceroute (or anything containing an IP really)
 and the program will output the geolocation data for each IP.
 ---------------------------------------------------------------
 `)
-	var usrChoice int
-	var results []IPInfoResp
+
 	fmt.Println("Enter ipinfo.io token:")
 	token := readUserInputSingle()
 
@@ -63,9 +67,10 @@ and the program will output the geolocation data for each IP.
 			fmt.Println("Good bye!")
 			os.Exit(0)
 		case 1:
+			fmt.Print(results)
 			for i, result := range results {
 				fmt.Println("---------------------------------------------------------------")
-				fmt.Println("Hop", i+1, "IP:", result.IP)
+				fmt.Println("Hop", i, "IP:", result.IP)
 				fmt.Println("---------------------------------------------------------------")
 				fmt.Printf("Hostname: %s \n", result.Hostname)
 				fmt.Printf("Anycast: %v \n", result.Anycast)
@@ -82,20 +87,42 @@ and the program will output the geolocation data for each IP.
 			displayChoices(choices)
 			usrChoice, _ = strconv.Atoi(readUserInputSingle())
 		case 2:
+			reIndex := regexp.MustCompile(`^\s*\d `)
+
+			for _, l := range usrInput {
+				hopIndex := strings.TrimSpace(reIndex.FindString(l))
+
+				if len(hopIndex) > 0 {
+					i, _ := strconv.Atoi(hopIndex)
+					fmt.Printf("%s        # %s - %s\n", l, results[i].City, results[i].Country)
+				} else {
+					fmt.Printf("%s\n", l)
+				}
+			}
+
 			displayChoices(choices)
 			usrChoice, _ = strconv.Atoi(readUserInputSingle())
 		default:
+			// clear persistent variables
 			results = nil
-			fmt.Println("Enter the IP(s) and press and enter ", exitString, " in the last line.")
-			usrInput := readUserInput()
-			ipList := parseIPs(usrInput)
-			results = queryIPs(ipList, token)
+			usrInput = nil
+			ipList = nil
 
+			// Take and parse new input
+			fmt.Println("Enter the IP(s) and press and enter ", exitString, " in the last line.")
+			usrInput = readUserInput()
+			if len(usrInput) > 0 {
+				ipList = parseIPs(usrInput)
+				results = queryIPs(ipList, token)
+			} else {
+				fmt.Println("No input detected, please try again")
+			}
+
+			// Select display method
 			fmt.Println("Select display option")
 			displayChoices(choices)
 			usrChoice, _ = strconv.Atoi(readUserInputSingle())
 		}
-
 	}
 }
 
@@ -105,56 +132,68 @@ func displayChoices(choices []Choice) {
 	}
 }
 
-func queryIPs(ipList []string, token string) []IPInfoResp {
-	var results []IPInfoResp
+func queryIPs(ipList map[int]string, token string) map[int]IPInfoResp {
+	results := make(map[int]IPInfoResp)
 	baseURL := "https://ipinfo.io"
+	reRFC1918 := regexp.MustCompile(`^(10\.(?:\d{1,3}\.){2}\d{1,3})$|^(172\.(?:1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3})$|^(192\.168\.\d{1,3}\.\d{1,3})$`)
 
-	for _, ip := range ipList {
-
-		u, err := url.Parse(baseURL)
-		if err != nil {
-			fmt.Println("Error parsing URL: ", err)
-			return nil
-		}
-
-		u.Path += "/" + ip
-		q := u.Query()
-		q.Add("token", token)
-		u.RawQuery = q.Encode()
-
-		resp, err := http.Get(u.String())
-		if err != nil {
-			log.Println(err)
-		}
-		defer resp.Body.Close()
-
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			log.Println(err)
-		}
-
-		var result IPInfoResp
-		if err := json.Unmarshal(body, &result); err != nil {
-			fmt.Println("Can not unmarshal JSON")
+	for i, ip := range ipList {
+		if match := reRFC1918.FindStringSubmatch(ip); match != nil {
 			break
+		} else {
+			u, err := url.Parse(baseURL)
+			if err != nil {
+				fmt.Println("Error parsing URL: ", err)
+				return nil
+			}
+
+			u.Path += "/" + ip
+			q := u.Query()
+			q.Add("token", token)
+			u.RawQuery = q.Encode()
+
+			resp, err := http.Get(u.String())
+			if err != nil {
+				log.Println(err)
+			}
+			defer resp.Body.Close()
+
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				log.Println(err)
+			}
+
+			var result IPInfoResp
+			if err := json.Unmarshal(body, &result); err != nil {
+				fmt.Println("Can not unmarshal JSON")
+				break
+			}
+			results[i] = result
 		}
-		results = append(results, result)
 	}
 	return results
 }
 
-func parseIPs(usrInput []string) []string {
-	var ipList []string
+func parseIPs(usrInput []string) map[int]string {
+	ipList := make(map[int]string)
 
 	reIP := regexp.MustCompile(`(?:25[0-5]|2[0-4]\d|1\d{2}|\d{1,2})(?:\.(?:25[0-5]|2[0-4]\d|1\d{2}|\d{1,2})){3}`)
+	reIndex := regexp.MustCompile(`^\s*\d `)
 
-	for _, l := range usrInput {
+	for i, l := range usrInput {
+		hopIndex := strings.TrimSpace(reIndex.FindString(l))
 		ip := reIP.FindString(l)
-		if len(ip) > 0 {
-			ipList = append(ipList, ip)
+
+		if (len(ip) > 0) && (len(hopIndex) > 0) {
+			hop, _ := strconv.Atoi(hopIndex)
+			ipList[hop] = ip
+		} else if len(ip) > 0 {
+			ipList[i+1] = ip
+		} else if len(hopIndex) > 0 {
+			hop, _ := strconv.Atoi(hopIndex)
+			ipList[hop] = "Unknown"
 		}
 	}
-
 	return ipList
 }
 
