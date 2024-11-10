@@ -139,7 +139,8 @@ func queryIPs(ipList map[int]string, token string) map[int]IPInfoResp {
 
 	for i, ip := range ipList {
 		if match := reRFC1918.FindStringSubmatch(ip); match != nil {
-			break
+			results[i] = IPInfoResp{IP: ip, City: "Local"}
+			continue
 		} else {
 			u, err := url.Parse(baseURL)
 			if err != nil {
@@ -189,9 +190,6 @@ func parseIPs(usrInput []string) map[int]string {
 			ipList[hop] = ip
 		} else if len(ip) > 0 {
 			ipList[i+1] = ip
-		} else if len(hopIndex) > 0 {
-			hop, _ := strconv.Atoi(hopIndex)
-			ipList[hop] = "Unknown"
 		}
 	}
 	return ipList
