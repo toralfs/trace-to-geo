@@ -43,6 +43,7 @@ func main() {
 		{ID: 9, Description: "Exit program"},
 	}
 	var usrChoice int
+	var token string
 	var usrInput []string
 	var results map[int]IPInfoResp
 	var ipList map[int]string
@@ -58,7 +59,18 @@ and the program will output the geolocation data for each IP.
 `)
 
 	fmt.Println("Enter ipinfo.io token:")
-	token := readUserInputSingle()
+	hasToken := false
+	for !hasToken {
+		token = readUserInputSingle()
+		if len(token) == 0 {
+			fmt.Println("No token entered, try again..")
+			continue
+		} else if len(token) != 14 {
+			fmt.Println("Invalid token length, try again..")
+			continue
+		}
+		hasToken = true
+	}
 
 	// user interaction loop
 	for {
@@ -67,7 +79,6 @@ and the program will output the geolocation data for each IP.
 			fmt.Println("Good bye!")
 			os.Exit(0)
 		case 1:
-			fmt.Print(results)
 			for i, result := range results {
 				fmt.Println("---------------------------------------------------------------")
 				fmt.Println("Hop", i, "IP:", result.IP)
@@ -159,17 +170,21 @@ func queryIPs(ipList map[int]string, token string) map[int]IPInfoResp {
 			}
 			defer resp.Body.Close()
 
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				log.Println(err)
-			}
+			if resp.StatusCode == 200 {
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					log.Println(err)
+				}
 
-			var result IPInfoResp
-			if err := json.Unmarshal(body, &result); err != nil {
-				fmt.Println("Can not unmarshal JSON")
-				break
+				var result IPInfoResp
+				if err := json.Unmarshal(body, &result); err != nil {
+					fmt.Println("Can not unmarshal JSON")
+					break
+				}
+				results[i] = result
+			} else {
+				fmt.Println("IP query failed, http status: ", resp.StatusCode, " - ", resp.Status)
 			}
-			results[i] = result
 		}
 	}
 	return results
