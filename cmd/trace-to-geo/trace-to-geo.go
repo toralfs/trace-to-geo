@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -79,26 +80,34 @@ and the program will output the geolocation data for each IP.
 			fmt.Println("Good bye!")
 			os.Exit(0)
 		case 1:
-			for i, result := range results {
-				fmt.Println("---------------------------------------------------------------")
-				fmt.Println("Hop", i, "IP:", result.IP)
-				fmt.Println("---------------------------------------------------------------")
-				fmt.Printf("Hostname: %s \n", result.Hostname)
-				fmt.Printf("Anycast: %v \n", result.Anycast)
-				fmt.Printf("City: %s \n", result.City)
-				fmt.Printf("Region: %s \n", result.Region)
-				fmt.Printf("Country: %s \n", result.Country)
-				fmt.Printf("Location: %s \n", result.Loc)
-				fmt.Printf("Organization: %s \n", result.Org)
-				fmt.Printf("Postal: %s \n", result.Postal)
-				fmt.Printf("Timezone: %s \n", result.Timezone)
-				fmt.Printf("---------------------------------------------------------------\n\n")
+			keys := make([]int, 0, len(results))
+			for k := range results {
+				keys = append(keys, k)
+			}
+			sort.Ints(keys)
+
+			for _, k := range keys {
+				if r, exist := results[k]; exist {
+					fmt.Println("---------------------------------------------------------------")
+					fmt.Println("Hop", k, "IP:", r.IP)
+					fmt.Println("---------------------------------------------------------------")
+					fmt.Printf("Hostname: %s \n", r.Hostname)
+					fmt.Printf("Anycast: %v \n", r.Anycast)
+					fmt.Printf("City: %s \n", r.City)
+					fmt.Printf("Region: %s \n", r.Region)
+					fmt.Printf("Country: %s \n", r.Country)
+					fmt.Printf("Location: %s \n", r.Loc)
+					fmt.Printf("Organization: %s \n", r.Org)
+					fmt.Printf("Postal: %s \n", r.Postal)
+					fmt.Printf("Timezone: %s \n", r.Timezone)
+					fmt.Printf("---------------------------------------------------------------\n\n")
+				}
 			}
 
 			displayChoices(choices)
 			usrChoice, _ = strconv.Atoi(readUserInputSingle())
 		case 2:
-			reIndex := regexp.MustCompile(`^\s*\d `)
+			reIndex := regexp.MustCompile(`^\s*\d* `)
 
 			for _, l := range usrInput {
 				hopIndex := strings.TrimSpace(reIndex.FindString(l))
@@ -194,7 +203,7 @@ func parseIPs(usrInput []string) map[int]string {
 	ipList := make(map[int]string)
 
 	reIP := regexp.MustCompile(`(?:25[0-5]|2[0-4]\d|1\d{2}|\d{1,2})(?:\.(?:25[0-5]|2[0-4]\d|1\d{2}|\d{1,2})){3}`)
-	reIndex := regexp.MustCompile(`^\s*\d `)
+	reIndex := regexp.MustCompile(`^\s*\d* `)
 
 	for i, l := range usrInput {
 		hopIndex := strings.TrimSpace(reIndex.FindString(l))
