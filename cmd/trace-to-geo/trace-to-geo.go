@@ -37,9 +37,9 @@ type Choice struct {
 func main() {
 	// init
 	choices := []Choice{
-		{ID: 0, Description: "Enter a new IP or traceroute"},
-		{ID: 1, Description: "Show full IP info for every hop"},
-		{ID: 2, Description: "Keep the same traceroute input, prepend Location info only"},
+		{ID: 0, Description: "enter a new IP(s) or traceroute"},
+		{ID: 1, Description: "Show full geo location data for each IP"},
+		{ID: 2, Description: "Show initial traceroute with country appended"},
 		{ID: 9, Description: "Exit program"},
 	}
 	var usrChoice int
@@ -51,10 +51,11 @@ func main() {
 	// start UI
 	fmt.Print(`
 ---------------------------------------------------------------
-Welcome to Trace to Geo
+Trace to Geo - based on ipinfo.io
 				
-Please enter an IP or a traceroute (or anything containing an IP really)
-and the program will output the geolocation data for each IP.
+First enter an ipinfo.io API token, then you can enter an IP, 
+list of IPs or a traceroute. Then the program will output 
+the geolocation data for each IP.
 ---------------------------------------------------------------
 `)
 
