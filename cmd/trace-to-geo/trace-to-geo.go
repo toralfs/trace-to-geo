@@ -31,16 +31,24 @@ type IPInfoResp struct {
 }
 
 type Choice struct {
+	Name        string
 	ID          int
 	Description string
+}
+
+type Choices struct {
+	New       Choice
+	ShowFull  Choice
+	ShowTrace Choice
+	Exit      Choice
 }
 
 func main() {
 	// init
 	choices := []Choice{
-		{ID: 0, Description: "enter a new IP(s) or traceroute"},
-		{ID: 1, Description: "Show full geo location data for each IP"},
-		{ID: 2, Description: "Show initial traceroute with country appended"},
+		{ID: 1, Description: "enter a new IP(s) or traceroute"},
+		{ID: 2, Description: "Show full geo location data for each IP"},
+		{ID: 3, Description: "Show initial traceroute with country appended"},
 		{ID: 9, Description: "Exit program"},
 	}
 	var usrChoice int
@@ -74,13 +82,31 @@ the geolocation data for each IP.
 		hasToken = true
 	}
 
-	// user interaction loop
+	// user interaction loop. usrChoice set to 1 for initially entering IPs
+	usrChoice = 1
 	for {
 		switch usrChoice {
-		case 9:
-			fmt.Println("Good bye!")
-			os.Exit(0)
 		case 1:
+			// clear persistent variables
+			results = nil
+			usrInput = nil
+			ipList = nil
+
+			// Take and parse new input
+			fmt.Println("Enter the IP(s) and press and enter ", exitString, " in the last line.")
+			usrInput = readUserInput()
+			if len(usrInput) > 0 {
+				ipList = parseIPs(usrInput)
+				results = queryIPs(ipList, token)
+			} else {
+				fmt.Println("No input detected, please try again")
+			}
+
+			// Select display method
+			fmt.Println("Select display option")
+			displayChoices(choices)
+			usrChoice, _ = strconv.Atoi(readUserInputSingle())
+		case 2:
 			keys := make([]int, 0, len(results))
 			for k := range results {
 				keys = append(keys, k)
@@ -107,7 +133,11 @@ the geolocation data for each IP.
 
 			displayChoices(choices)
 			usrChoice, _ = strconv.Atoi(readUserInputSingle())
-		case 2:
+		case 3:
+			// find the longest trace line
+			longestLine := findLongestLine(usrInput)
+
+			// Find hop indexes and print lines
 			reIndex := regexp.MustCompile(`^\s*\d* `)
 
 			for _, l := range usrInput {
@@ -115,7 +145,8 @@ the geolocation data for each IP.
 
 				if len(hopIndex) > 0 {
 					i, _ := strconv.Atoi(hopIndex)
-					fmt.Printf("%s        # %s - %s\n", l, results[i].City, results[i].Country)
+					spaceDiff := strings.Repeat(" ", longestLine-len(l))
+					fmt.Printf("%s    %s# %s - %s\n", l, spaceDiff, results[i].City, results[i].Country)
 				} else {
 					fmt.Printf("%s\n", l)
 				}
@@ -123,24 +154,10 @@ the geolocation data for each IP.
 
 			displayChoices(choices)
 			usrChoice, _ = strconv.Atoi(readUserInputSingle())
+		case 9:
+			fmt.Println("Good bye!")
+			os.Exit(0)
 		default:
-			// clear persistent variables
-			results = nil
-			usrInput = nil
-			ipList = nil
-
-			// Take and parse new input
-			fmt.Println("Enter the IP(s) and press and enter ", exitString, " in the last line.")
-			usrInput = readUserInput()
-			if len(usrInput) > 0 {
-				ipList = parseIPs(usrInput)
-				results = queryIPs(ipList, token)
-			} else {
-				fmt.Println("No input detected, please try again")
-			}
-
-			// Select display method
-			fmt.Println("Select display option")
 			displayChoices(choices)
 			usrChoice, _ = strconv.Atoi(readUserInputSingle())
 		}
@@ -218,6 +235,19 @@ func parseIPs(usrInput []string) map[int]string {
 		}
 	}
 	return ipList
+}
+
+func findLongestLine(lines []string) int {
+	longestLine := 0
+
+	for _, l := range lines {
+		lineLength := len(l)
+		if lineLength > longestLine {
+			longestLine = lineLength
+		}
+	}
+
+	return longestLine
 }
 
 func readUserInput() []string {
