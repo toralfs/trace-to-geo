@@ -25,3 +25,6 @@ bin/
 
 # tmp files
 tmp*
+
+# .vscode directory
+.vscode/
