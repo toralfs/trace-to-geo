@@ -94,7 +94,6 @@ the geolocation data for each IP.
 			}
 
 			// Select display method
-			fmt.Println("Select display option")
 			displayChoices(choices)
 			usrChoice, _ = strconv.Atoi(readUserInputSingle())
 		case 2:
@@ -156,9 +155,9 @@ the geolocation data for each IP.
 }
 
 func displayChoices(choices []Choice) {
-	fmt.Println()
+	fmt.Printf("\nSelect display option\n")
 	for _, c := range choices {
-		fmt.Printf("Enter \"%v\" for: %s", c.ID, c.Description)
+		fmt.Printf("Enter \"%v\" for: %s\n", c.ID, c.Description)
 	}
 }
 
