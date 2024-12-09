@@ -125,7 +125,6 @@ the geolocation data for each IP.
 			displayChoices(choices)
 			usrChoice, _ = strconv.Atoi(readUserInputSingle())
 		case 3:
-			fmt.Println()
 
 			// find the longest trace line
 			longestLine := findLongestLine(usrInput)
@@ -143,7 +142,6 @@ the geolocation data for each IP.
 					fmt.Printf("%s\n", l)
 				}
 			}
-			fmt.Println()
 
 			displayChoices(choices)
 			usrChoice, _ = strconv.Atoi(readUserInputSingle())
@@ -158,8 +156,9 @@ the geolocation data for each IP.
 }
 
 func displayChoices(choices []Choice) {
+	fmt.Println()
 	for _, c := range choices {
-		fmt.Println("Enter \"", c.ID, "\" for: ", c.Description)
+		fmt.Printf("Enter \"%v\" for: %s", c.ID, c.Description)
 	}
 }
 
