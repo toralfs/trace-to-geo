@@ -17,6 +17,9 @@
 # Project-local glide cache, RE: https://github.com/Masterminds/glide/issues/736
 .glide/
 
+# vscode folder
+.vscode
+
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
@@ -25,6 +28,3 @@ bin/
 
 # tmp files
 tmp*
-
-# vscode directory
-.vscode
