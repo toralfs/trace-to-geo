@@ -15,8 +15,6 @@ import (
 	"strings"
 )
 
-var exitString string = "done"
-
 type IPInfoResp struct {
 	IP       string `json:"ip"`
 	Hostname string `json:"hostname"`
@@ -34,13 +32,6 @@ type Choice struct {
 	Name        string
 	ID          int
 	Description string
-}
-
-type Choices struct {
-	New       Choice
-	ShowFull  Choice
-	ShowTrace Choice
-	Exit      Choice
 }
 
 func main() {
@@ -93,7 +84,7 @@ the geolocation data for each IP.
 			ipList = nil
 
 			// Take and parse new input
-			fmt.Println("Enter the IP(s) and press and enter ", exitString, " in the last line.")
+			fmt.Println("Enter the IP(s) and press and enter Ctrl+D or Ctrl+Z (depending on OS).")
 			usrInput = readUserInput()
 			if len(usrInput) > 0 {
 				ipList = parseIPs(usrInput)
@@ -255,12 +246,10 @@ func readUserInput() []string {
 
 	var lines []string
 	for {
-		s.Scan()
-		l := s.Text()
-		if l == exitString {
+		if !s.Scan() {
 			break
 		}
-		lines = append(lines, l)
+		lines = append(lines, s.Text())
 	}
 
 	err := s.Err()
