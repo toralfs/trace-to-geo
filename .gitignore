@@ -27,4 +27,4 @@ bin/
 tmp*
 
 # vscode directory
-.vscode/
+.vscode
