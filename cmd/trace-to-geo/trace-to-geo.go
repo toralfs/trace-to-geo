@@ -84,7 +84,7 @@ the geolocation data for each IP.
 			ipList = nil
 
 			// Take and parse new input
-			fmt.Println("Enter the IP(s) and press and enter Ctrl+D or Ctrl+Z (depending on OS).")
+			fmt.Println("Enter the IP(s) and then press Ctrl+D or Ctrl+Z (depending on OS) and Enter.")
 			usrInput = readUserInput()
 			if len(usrInput) > 0 {
 				ipList = parseIPs(usrInput)
