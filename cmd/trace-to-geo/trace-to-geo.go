@@ -118,19 +118,20 @@ the geolocation data for each IP.
 					fmt.Printf("Organization: %s \n", r.Org)
 					fmt.Printf("Postal: %s \n", r.Postal)
 					fmt.Printf("Timezone: %s \n", r.Timezone)
-					fmt.Printf("---------------------------------------------------------------\n\n")
+					fmt.Printf("\n\n")
 				}
 			}
 
 			displayChoices(choices)
 			usrChoice, _ = strconv.Atoi(readUserInputSingle())
 		case 3:
+			fmt.Println()
+
 			// find the longest trace line
 			longestLine := findLongestLine(usrInput)
 
 			// Find hop indexes and print lines
 			reIndex := regexp.MustCompile(`^\s*\d* `)
-
 			for _, l := range usrInput {
 				hopIndex := strings.TrimSpace(reIndex.FindString(l))
 
@@ -142,6 +143,7 @@ the geolocation data for each IP.
 					fmt.Printf("%s\n", l)
 				}
 			}
+			fmt.Println()
 
 			displayChoices(choices)
 			usrChoice, _ = strconv.Atoi(readUserInputSingle())
