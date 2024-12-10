@@ -145,14 +145,19 @@ the geolocation data for each IP.
 
 func getToken() string {
 	// Check if token flag is set
-	tokenFlag := flag.String("a", "", "ipinfo.io API token")
+	tokenFlag := flag.String("t", "", "ipinfo.io API token")
 	flag.Parse()
 
 	if *tokenFlag != "" {
 		return *tokenFlag
 	}
 
-	// if token flag is not set, require user input
+	// If token flag not set check if environment variable is set
+	if token := os.Getenv("IPINFO_TOKEN"); token != "" {
+		return token
+	}
+
+	// if neither flag nor env is set, require user input
 	fmt.Println("Enter ipinfo.io token:")
 	var hasToken bool
 	var token string
