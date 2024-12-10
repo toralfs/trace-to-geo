@@ -77,6 +77,7 @@ the geolocation data for each IP.
 			usrInput = readUserInput()
 			if len(usrInput) > 0 {
 				ipList = parseIPs(usrInput)
+				fmt.Println("Querying IPs...")
 				results = queryIPs(ipList, token)
 			} else {
 				fmt.Println("No input detected, please try again")
