@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -43,7 +44,6 @@ func main() {
 		{ID: 9, Description: "Exit program"},
 	}
 	var usrChoice int
-	var token string
 	var usrInput []string
 	var results map[int]IPInfoResp
 	var ipList map[int]string
@@ -59,19 +59,8 @@ the geolocation data for each IP.
 ---------------------------------------------------------------
 `)
 
-	fmt.Println("Enter ipinfo.io token:")
-	hasToken := false
-	for !hasToken {
-		token = readUserInputSingle()
-		if len(token) == 0 {
-			fmt.Println("No token entered, try again..")
-			continue
-		} else if len(token) != 14 {
-			fmt.Println("Invalid token length, try again..")
-			continue
-		}
-		hasToken = true
-	}
+	// get ipinfo.io API token
+	token := getToken()
 
 	// user interaction loop. usrChoice set to 1 for initially entering IPs
 	usrChoice = 1
@@ -152,6 +141,33 @@ the geolocation data for each IP.
 			usrChoice, _ = strconv.Atoi(readUserInputSingle())
 		}
 	}
+}
+
+func getToken() string {
+	// Check if token flag is set
+	tokenFlag := flag.String("a", "", "ipinfo.io API token")
+	flag.Parse()
+
+	if *tokenFlag != "" {
+		return *tokenFlag
+	}
+
+	// if token flag is not set, require user input
+	fmt.Println("Enter ipinfo.io token:")
+	var hasToken bool
+	var token string
+	for !hasToken {
+		token = readUserInputSingle()
+		if len(token) == 0 {
+			fmt.Println("No token entered, try again..")
+			continue
+		} else if len(token) != 14 {
+			fmt.Println("Invalid token length, try again..")
+			continue
+		}
+		hasToken = true
+	}
+	return token
 }
 
 func displayChoices(choices []Choice) {
