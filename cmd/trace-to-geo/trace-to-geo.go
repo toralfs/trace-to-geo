@@ -105,7 +105,7 @@ the geolocation data for each IP.
 			for i, l := range userIPInput {
 				if hop, exists := hopMap[i]; exists {
 					spaceDiff := strings.Repeat(" ", longestLine-len(l))
-					if info := queryResult[hop.IP.String()]; info != nil {
+					if hop.Info != nil {
 						fmt.Printf("%s    %s# %s - %s\n", l, spaceDiff, hop.Info.City, hop.Info.CountryName)
 					} else {
 						fmt.Printf("%s    %s# %s - %s\n", l, spaceDiff, "Private IP", "Local")
