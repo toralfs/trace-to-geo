@@ -2,31 +2,23 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
-	"net/url"
+	"net"
 	"os"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/ipinfo/go/v2/ipinfo"
+	"github.com/ipinfo/go/v2/ipinfo/cache"
 )
 
-type IPInfoResp struct {
-	IP       string `json:"ip"`
-	Hostname string `json:"hostname"`
-	Anycast  bool   `json:"anycast"`
-	City     string `json:"city"`
-	Region   string `json:"region"`
-	Country  string `json:"country"`
-	Loc      string `json:"loc"`
-	Org      string `json:"org"`
-	Postal   string `json:"postal"`
-	Timezone string `json:"timezone"`
+type Hop struct {
+	Index int
+	IP    net.IP
 }
 
 type Choice struct {
@@ -45,8 +37,8 @@ func main() {
 	}
 	var usrChoice int
 	var usrInput []string
-	var results map[int]IPInfoResp
-	var ipList map[int]string
+	var results ipinfo.BatchCore
+	var ipList []Hop
 
 	// start UI
 	fmt.Print(`
@@ -86,26 +78,35 @@ the geolocation data for each IP.
 			displayChoices(choices)
 			usrChoice, _ = strconv.Atoi(readUserInputSingle())
 		case 2:
-			keys := make([]int, 0, len(results))
-			for k := range results {
-				keys = append(keys, k)
-			}
-			sort.Ints(keys)
-
-			for _, k := range keys {
-				if r, exist := results[k]; exist {
+			for _, hop := range ipList {
+				currentHop := hop.IP.String()
+				if info := results[currentHop]; info != nil {
 					fmt.Println("---------------------------------------------------------------")
-					fmt.Println("Hop", k, "IP:", r.IP)
+					fmt.Printf("Hop: %v - IP: %s\n", hop.Index, hop.IP)
 					fmt.Println("---------------------------------------------------------------")
-					fmt.Printf("Hostname: %s \n", r.Hostname)
-					fmt.Printf("Anycast: %v \n", r.Anycast)
-					fmt.Printf("City: %s \n", r.City)
-					fmt.Printf("Region: %s \n", r.Region)
-					fmt.Printf("Country: %s \n", r.Country)
-					fmt.Printf("Location: %s \n", r.Loc)
-					fmt.Printf("Organization: %s \n", r.Org)
-					fmt.Printf("Postal: %s \n", r.Postal)
-					fmt.Printf("Timezone: %s \n", r.Timezone)
+					fmt.Printf("Hostname: %s \n", info.Hostname)
+					fmt.Printf("Anycast: %v \n", info.Anycast)
+					fmt.Printf("City: %s \n", info.City)
+					fmt.Printf("Region: %s \n", info.Region)
+					fmt.Printf("Country: %s \n", info.Country)
+					fmt.Printf("Location: %s \n", info.Location)
+					fmt.Printf("Organization: %s \n", info.Org)
+					fmt.Printf("Postal: %s \n", info.Postal)
+					fmt.Printf("Timezone: %s \n", info.Timezone)
+					fmt.Printf("\n\n")
+				} else {
+					fmt.Println("---------------------------------------------------------------")
+					fmt.Printf("Hop: %v - IP: %s\n", hop.Index, hop.IP)
+					fmt.Println("---------------------------------------------------------------")
+					fmt.Printf("Hostname: %s \n", "Private IP")
+					fmt.Printf("Anycast: %v \n", "Private IP")
+					fmt.Printf("City: %s \n", "Private IP")
+					fmt.Printf("Region: %s \n", "Private IP")
+					fmt.Printf("Country: %s \n", "Private IP")
+					fmt.Printf("Location: %s \n", "Private IP")
+					fmt.Printf("Organization: %s \n", "Private IP")
+					fmt.Printf("Postal: %s \n", "Private IP")
+					fmt.Printf("Timezone: %s \n", "Private IP")
 					fmt.Printf("\n\n")
 				}
 			}
@@ -113,19 +114,30 @@ the geolocation data for each IP.
 			displayChoices(choices)
 			usrChoice, _ = strconv.Atoi(readUserInputSingle())
 		case 3:
-
 			// find the longest trace line
 			longestLine := findLongestLine(usrInput)
 
 			// Find hop indexes and print lines
 			reIndex := regexp.MustCompile(`^\s*\d* `)
 			for _, l := range usrInput {
+				// Find hop index to determine where to print IP details.
 				hopIndex := strings.TrimSpace(reIndex.FindString(l))
-
 				if len(hopIndex) > 0 {
 					i, _ := strconv.Atoi(hopIndex)
-					spaceDiff := strings.Repeat(" ", longestLine-len(l))
-					fmt.Printf("%s    %s# %s - %s\n", l, spaceDiff, results[i].City, results[i].Country)
+
+					// find IP of current hop
+					for _, hop := range ipList {
+						if hop.Index == i {
+							spaceDiff := strings.Repeat(" ", longestLine-len(l))
+							currentHop := hop.IP.String()
+							if info := results[currentHop]; info != nil {
+								fmt.Printf("%s    %s# %s - %s\n", l, spaceDiff, info.City, info.CountryName)
+							} else {
+								fmt.Printf("%s    %s# %s - %s\n", l, spaceDiff, "Private IP", "Local")
+							}
+						}
+					}
+
 				} else {
 					fmt.Printf("%s\n", l)
 				}
@@ -182,71 +194,58 @@ func displayChoices(choices []Choice) {
 	}
 }
 
-func queryIPs(ipList map[int]string, token string) map[int]IPInfoResp {
-	results := make(map[int]IPInfoResp)
-	baseURL := "https://ipinfo.io"
-	reRFC1918 := regexp.MustCompile(`^(10\.(?:\d{1,3}\.){2}\d{1,3})$|^(172\.(?:1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3})$|^(192\.168\.\d{1,3}\.\d{1,3})$`)
+func queryIPs(hops []Hop, token string) ipinfo.BatchCore {
+	// Create ipinfo client
+	client := ipinfo.NewClient(
+		nil,
+		ipinfo.NewCache(cache.NewInMemory().WithExpiration(5*time.Minute)),
+		token,
+	)
 
-	for i, ip := range ipList {
-		if match := reRFC1918.FindStringSubmatch(ip); match != nil {
-			results[i] = IPInfoResp{IP: ip, City: "Local"}
-			continue
-		} else {
-			u, err := url.Parse(baseURL)
-			if err != nil {
-				fmt.Println("Error parsing URL: ", err)
-				return nil
-			}
-
-			u.Path += "/" + ip
-			q := u.Query()
-			q.Add("token", token)
-			u.RawQuery = q.Encode()
-
-			resp, err := http.Get(u.String())
-			if err != nil {
-				log.Println(err)
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == 200 {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					log.Println(err)
-				}
-
-				var result IPInfoResp
-				if err := json.Unmarshal(body, &result); err != nil {
-					fmt.Println("Can not unmarshal JSON")
-					break
-				}
-				results[i] = result
-			} else {
-				fmt.Println("IP query failed, http status: ", resp.StatusCode, " - ", resp.Status)
-			}
+	// create list of IPs to query, disregard private IPs
+	var queryList []net.IP
+	for _, hop := range hops {
+		ip := hop.IP
+		if !net.IP.IsPrivate(ip) {
+			queryList = append(queryList, ip)
 		}
 	}
-	return results
+
+	// Query IPs
+	result, err := client.GetIPInfoBatch(queryList, ipinfo.BatchReqOpts{})
+	if err != nil {
+		log.Fatal("Failed to query IPs", err)
+	}
+
+	return result
 }
 
-func parseIPs(usrInput []string) map[int]string {
-	ipList := make(map[int]string)
-
-	reIP := regexp.MustCompile(`(?:25[0-5]|2[0-4]\d|1\d{2}|\d{1,2})(?:\.(?:25[0-5]|2[0-4]\d|1\d{2}|\d{1,2})){3}`)
+func parseIPs(usrInput []string) []Hop {
+	// create a map for the hops, this way we can get the hop index later by "querying" the IP
+	var hops []Hop
+	var hopIndex int
 	reIndex := regexp.MustCompile(`^\s*\d* `)
 
 	for i, l := range usrInput {
-		hopIndex := strings.TrimSpace(reIndex.FindString(l))
-		ip := reIP.FindString(l)
+		// first find the hop index in case of a traceroute
+		if match := reIndex.FindStringSubmatch(l); match != nil {
+			hopIndex, _ = strconv.Atoi(strings.TrimSpace(match[0]))
+		} else {
+			hopIndex = i + 1
+		}
 
-		if (len(ip) > 0) && (len(hopIndex) > 0) {
-			hop, _ := strconv.Atoi(hopIndex)
-			ipList[hop] = ip
-		} else if len(ip) > 0 {
-			ipList[i+1] = ip
+		// Divide line into parts for each string, and check if valid IP
+		// If valid add it and the hop index to the list.
+		parts := strings.Fields(l)
+		for _, part := range parts {
+			ip := net.ParseIP(part)
+			if ip != nil {
+				hop := Hop{Index: hopIndex, IP: ip}
+				hops = append(hops, hop)
+			}
 		}
 	}
-	return ipList
+	return hops
 }
 
 func findLongestLine(lines []string) int {
