@@ -28,3 +28,6 @@ bin/
 
 # tmp files
 tmp*
+
+# test file
+test.go
