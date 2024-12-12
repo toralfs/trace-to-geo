@@ -225,8 +225,8 @@ func parseIPs(userIPInput []string) []Hop {
 		// If valid add it and the hop index to the list.
 		parts := strings.Fields(l)
 		for _, part := range parts {
-			// Trim () as linux traceroute tends to have the IP in braces when resolving hostnames
-			part = strings.Trim(part, "()")
+			// Trim () and [] as traceroutes may have the IP withing these when resolving hostnames
+			part = strings.Trim(part, "()[]")
 			ip := net.ParseIP(part)
 			if ip != nil {
 				hop := Hop{Index: hopIndex, IP: ip, LineNum: i}
